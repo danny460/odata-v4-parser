@@ -381,7 +381,7 @@ export namespace Expressions {
     }
 
     export function aggregateTransformation(value: Utils.SourceArray, index: number): Lexer.Token {return setTransformationFactory(value, index, "aggregate", 1); }
-    export function groupbyTransformation(value: Utils.SourceArray, index: number): Lexer.Token { return setTransformationFactory(value, index, "groupby", 2); }
+    export function groupbyTransformation(value: Utils.SourceArray, index: number): Lexer.Token { return setTransformationFactory(value, index, "groupby", 1, 2); }
 
     export function aggregationExpr(value: Utils.SourceArray, index: number): Lexer.Token {
         const start = index;
