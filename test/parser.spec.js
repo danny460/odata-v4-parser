@@ -43,4 +43,18 @@ describe("Parser", () => {
     }catch(err){}
     expect(error).to.be.false;
   });
+
+  it("should parse aggregation pipeline", () => {
+    var parser = new Parser();
+    var error = false;
+    var ast = parser.query("$apply=groupby((time),aggregate(amount with sum as total))"
+      + "/aggregate(Sales/Amount with sum as Total)");
+    expect(ast.value.options[0].type).to.equal("Apply");
+    expect(ast.value.options[0].value.value.pipe[0].value.method).to.equal("groupby");
+    expect(ast.value.options[0].value.value.pipe[1].value.method).to.equal("aggregate");
+    expect(ast.value.options[0].value.value.pipe[1].value.parameters[0].value.aggregationMethod.raw).to.equal("sum");
+    expect(ast.value.options[0].value.value.pipe[1].value.parameters[0].value.alias.raw).to.equal("Total");
+    expect(ast.value.options[0].value.value.pipe[1].value.parameters[0].value.property.raw).to.equal("Sales/Amount");
+  });
+
 });

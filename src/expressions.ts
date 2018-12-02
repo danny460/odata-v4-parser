@@ -1,5 +1,5 @@
 import Utils from "./utils";
-import Lexer from "./lexer";
+import Lexer, { TokenType } from "./lexer";
 import PrimitiveLiteral from "./primitiveLiteral";
 import NameOrIdentifier from "./nameOrIdentifier";
 import ArrayOrObject from "./json";
@@ -39,9 +39,9 @@ export namespace Expressions {
     }
 
     export function boolCommonExpr(value: Utils.SourceArray, index: number): Lexer.Token {
-        let token = isofExpr(value, index) ||
-            boolMethodCallExpr(value, index) ||
-            notExpr(value, index) ||
+        let token = isofExpr(value, index) ||   // parse isOf
+            boolMethodCallExpr(value, index) || // parse startsWith(), endsWith(), contains(), intersects()
+            notExpr(value, index) ||            // parse not
             commonExpr(value, index) ||
             boolParenExpr(value, index);
 
@@ -230,6 +230,29 @@ export namespace Expressions {
             maxDateTimeMethodCallExpr(value, index) ||
             nowMethodCallExpr(value, index);
     }
+    export function setTransformations(value: Utils.SourceArray, index: number): Lexer.Token {
+        const start = index;
+        const pipe = [];
+        let token = aggregateTransformation(value, index) ||
+            groupbyTransformation(value, index);
+        if (!token) return;
+
+        while (token) {
+            pipe.push(token);
+            index = token.next;
+            // check /
+            index = Lexer.BWS(value, index);
+            if (value[index] === 0x2F) index++;
+            index = Lexer.BWS(value, index);
+            // check &
+            if (value[index] === 0x26) break;
+
+            token = aggregateTransformation(value, index) ||
+                groupbyTransformation(value, index);
+        }
+        return Lexer.tokenize(value, start, index, {pipe}, Lexer.TokenType.SetTransformations);
+    }
+
     export function methodCallExprFactory(value: Utils.SourceArray, index: number, method: string, min?: number, max?: number): Lexer.Token {
         if (typeof min === "undefined") min = 0;
         if (typeof max === "undefined") max = min;
@@ -304,6 +327,116 @@ export namespace Expressions {
     export function distanceMethodCallExpr(value: Utils.SourceArray, index: number): Lexer.Token { return methodCallExprFactory(value, index, "geo.distance", 2); }
     export function geoLengthMethodCallExpr(value: Utils.SourceArray, index: number): Lexer.Token { return methodCallExprFactory(value, index, "geo.length", 1); }
     export function intersectsMethodCallExpr(value: Utils.SourceArray, index: number): Lexer.Token { return methodCallExprFactory(value, index, "geo.intersects", 2); }
+
+    // aggregation set transformations
+    export function setTransformationFactory(value: Utils.SourceArray, index: number, method: string, min?: number, max?: number): Lexer.Token {
+        if (typeof min === "undefined") min = 0;
+        if (typeof max === "undefined") max = min;
+
+        const start = index;
+        if (!Utils.equals(value, index, method)) return;
+        index += method.length;
+
+        let open = Lexer.OPEN(value, index);
+        if (!open) return;
+        index = open;
+        index = Lexer.BWS(value, index);
+
+        const parameters = [];
+        if (min > 0) {
+            while (parameters.length < max) {
+                let token;
+
+                token = aggregateTransformation(value, index) ||
+                    aggregationExpr(value, index);
+                if (token) {
+                    parameters.push(token);
+                    index = token.next;
+                    continue;
+                } else token = Expressions.commonExpr(value, index);
+
+                if (parameters.length < min && !token) return;
+                else if (token) parameters.push(token.value);
+                else break; // no token and length >= min
+
+                index = token.next;
+                index = Lexer.BWS(value, index);
+                const comma = Lexer.COMMA(value, index);
+                if (parameters.length < min && !comma) return;
+                if (comma) index = comma;
+                else break;
+                index = Lexer.BWS(value, index);
+            }
+        }
+
+        index = Lexer.BWS(value, index);
+        let close = Lexer.CLOSE(value, index);
+        if (!close) return;
+        index = close;
+
+        return Lexer.tokenize(value, start, index, {
+            method,
+            parameters,
+        }, Lexer.TokenType.SetTransformation);
+    }
+
+    export function aggregateTransformation(value: Utils.SourceArray, index: number): Lexer.Token {return setTransformationFactory(value, index, "aggregate", 1); }
+    export function groupbyTransformation(value: Utils.SourceArray, index: number): Lexer.Token { return setTransformationFactory(value, index, "groupby", 2); }
+
+    export function aggregationExpr(value: Utils.SourceArray, index: number): Lexer.Token {
+        const start = index;
+
+        let property = Expressions.commonExpr(value, index);
+        if (!property) return;
+        index = property.next;
+        index = Lexer.BWS(value, index);
+
+        if (!Utils.equals(value, index, "with")) return;
+        index += 4;
+        index = Lexer.BWS(value, index);
+
+        const aggregationMethod = Expressions.sumExpr(value, index) ||
+            Expressions.averageExpr(value, index) ||
+            Expressions.minExpr(value, index) ||
+            Expressions.maxExpr(value, index);
+        if (!aggregationMethod) return;
+        index = aggregationMethod.next;
+        index = Lexer.BWS(value, index);
+
+        if (!Utils.equals(value, index, "as")) return;
+        index += 2;
+        index = Lexer.BWS(value, index);
+
+        let alias = Expressions.commonExpr(value, index);
+        if (!alias) return;
+        index = alias.next;
+        index = Lexer.BWS(value, index);
+
+        return Lexer.tokenize(value, start, index, {
+            property,
+            aggregationMethod,
+            alias,
+        }, Lexer.TokenType.AggregateExpression);
+    }
+
+    // standard aggregation method: sum, average, min, max
+    export function standardAggregationMethodExprFactory(value: Utils.SourceArray, index: number, method: string): Lexer.Token {
+        const start = index;
+        if (!Utils.equals(value, index, method)) return;
+        index += method.length;
+        return Lexer.tokenize(value, start, index, {method}, Lexer.TokenType.StandardAggregationMethodExpression);
+    }
+
+    export function sumExpr(value: Utils.SourceArray, index: number): Lexer.Token {return standardAggregationMethodExprFactory(value, index, "sum"); }
+    export function averageExpr(value: Utils.SourceArray, index: number): Lexer.Token {return standardAggregationMethodExprFactory(value, index, "average"); }
+    export function minExpr(value: Utils.SourceArray, index: number): Lexer.Token {return standardAggregationMethodExprFactory(value, index, "min"); }
+    export function maxExpr(value: Utils.SourceArray, index: number): Lexer.Token {return standardAggregationMethodExprFactory(value, index, "max"); }
+
+
+    export function groupByExpr(value: Utils.SourceArray, index: number): Lexer.Token {
+        const start = index;
+        return Lexer.tokenize(value, start, index, undefined, Lexer.TokenType.GroupByExpression);
+    }
 
     export function isofExpr(value: Utils.SourceArray, index: number): Lexer.Token {
         if (!Utils.equals(value, index, "isof")) return;

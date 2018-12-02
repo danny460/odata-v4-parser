@@ -35,6 +35,7 @@ export namespace Query {
     export function systemQueryOption(value: Utils.SourceArray, index: number, metadataContext?: any): Lexer.Token {
         return Query.expand(value, index, metadataContext) ||
             Query.filter(value, index) ||
+            Query.apply(value, index) ||
             Query.format(value, index) ||
             Query.id(value, index) ||
             Query.inlinecount(value, index) ||
@@ -524,6 +525,26 @@ export namespace Query {
         index = expr.next;
 
         return Lexer.tokenize(value, start, index, expr, Lexer.TokenType.Filter);
+    }
+
+    export function apply(value: Utils.SourceArray, index: number): Lexer.Token {
+      let start = index;
+      if (Utils.equals(value, index, "%24apply")) {
+        index += 8;
+      } else
+      if (Utils.equals(value, index, "$apply")) {
+        index += 6;
+      } else return;
+
+      let eq = Lexer.EQ(value, index);
+      if (!eq) return;
+      index = eq;
+
+      let transformations = Expressions.setTransformations(value, index);
+      if (!transformations) return;
+      index = transformations.next;
+
+      return Lexer.tokenize(value, start, index, transformations, Lexer.TokenType.Apply);
     }
 
     export function orderby(value: Utils.SourceArray, index: number): Lexer.Token {
