@@ -379,7 +379,6 @@ export namespace Expressions {
             parameters,
         }, Lexer.TokenType.SetTransformation);
     }
-
     export function aggregateTransformation(value: Utils.SourceArray, index: number): Lexer.Token {return setTransformationFactory(value, index, "aggregate", 1); }
     export function groupbyTransformation(value: Utils.SourceArray, index: number): Lexer.Token { return setTransformationFactory(value, index, "groupby", 1, 2); }
 
@@ -419,24 +418,16 @@ export namespace Expressions {
         }, Lexer.TokenType.AggregateExpression);
     }
 
-    // standard aggregation method: sum, average, min, max
-    export function standardAggregationMethodExprFactory(value: Utils.SourceArray, index: number, method: string): Lexer.Token {
+    export function standardAggregationMethodFactory(value: Utils.SourceArray, index: number, method: string): Lexer.Token {
         const start = index;
         if (!Utils.equals(value, index, method)) return;
         index += method.length;
         return Lexer.tokenize(value, start, index, {method}, Lexer.TokenType.StandardAggregationMethodExpression);
     }
-
-    export function sumExpr(value: Utils.SourceArray, index: number): Lexer.Token {return standardAggregationMethodExprFactory(value, index, "sum"); }
-    export function averageExpr(value: Utils.SourceArray, index: number): Lexer.Token {return standardAggregationMethodExprFactory(value, index, "average"); }
-    export function minExpr(value: Utils.SourceArray, index: number): Lexer.Token {return standardAggregationMethodExprFactory(value, index, "min"); }
-    export function maxExpr(value: Utils.SourceArray, index: number): Lexer.Token {return standardAggregationMethodExprFactory(value, index, "max"); }
-
-
-    export function groupByExpr(value: Utils.SourceArray, index: number): Lexer.Token {
-        const start = index;
-        return Lexer.tokenize(value, start, index, undefined, Lexer.TokenType.GroupByExpression);
-    }
+    export function sumExpr(value: Utils.SourceArray, index: number): Lexer.Token {return standardAggregationMethodFactory(value, index, "sum"); }
+    export function averageExpr(value: Utils.SourceArray, index: number): Lexer.Token {return standardAggregationMethodFactory(value, index, "average"); }
+    export function minExpr(value: Utils.SourceArray, index: number): Lexer.Token {return standardAggregationMethodFactory(value, index, "min"); }
+    export function maxExpr(value: Utils.SourceArray, index: number): Lexer.Token {return standardAggregationMethodFactory(value, index, "max"); }
 
     export function isofExpr(value: Utils.SourceArray, index: number): Lexer.Token {
         if (!Utils.equals(value, index, "isof")) return;
