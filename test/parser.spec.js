@@ -45,9 +45,8 @@ describe("Parser", () => {
   });
 
   it("should parse aggregation pipeline", () => {
-    var parser = new Parser();
-    var error = false;
-    var ast = parser.query("$apply=groupby((time),aggregate(amount with sum as total))"
+    const parser = new Parser();
+    const ast = parser.query("$apply=groupby((time),aggregate(amount with sum as total))"
       + "/aggregate(Sales/Amount with sum as Total)");
     expect(ast.value.options[0].type).to.equal("Apply");
     expect(ast.value.options[0].value.value.pipe[0].value.method).to.equal("groupby");
@@ -55,6 +54,12 @@ describe("Parser", () => {
     expect(ast.value.options[0].value.value.pipe[1].value.parameters[0].value.aggregationMethod.raw).to.equal("sum");
     expect(ast.value.options[0].value.value.pipe[1].value.parameters[0].value.alias.raw).to.equal("Total");
     expect(ast.value.options[0].value.value.pipe[1].value.parameters[0].value.property.raw).to.equal("Sales/Amount");
+  });
+
+  it("should parse filter in transformation set", () => {
+    const parser = new Parser();
+    const ast = parser.query("$apply=filter(date gt 2018-09-03T16:00:00Z and cardId eq '1234')")
+    expect(ast.value.options[0].value.value.pipe[0].value.method).to.equal("filter")
   });
 
 });

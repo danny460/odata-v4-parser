@@ -233,7 +233,8 @@ export namespace Expressions {
     export function setTransformations(value: Utils.SourceArray, index: number): Lexer.Token {
         const start = index;
         const pipe = [];
-        let token = aggregateTransformation(value, index) ||
+        let token = filterTransformation(value, index) ||
+            aggregateTransformation(value, index) ||
             groupbyTransformation(value, index);
         if (!token) return;
 
@@ -247,8 +248,10 @@ export namespace Expressions {
             // check &
             if (value[index] === 0x26) break;
 
-            token = aggregateTransformation(value, index) ||
+            token = filterTransformation(value, index) ||
+                aggregateTransformation(value, index) ||
                 groupbyTransformation(value, index);
+
         }
         return Lexer.tokenize(value, start, index, {pipe}, Lexer.TokenType.SetTransformations);
     }
@@ -353,7 +356,7 @@ export namespace Expressions {
                     parameters.push(token);
                     index = token.next;
                     continue;
-                } else token = Expressions.commonExpr(value, index);
+                } else token = boolCommonExpr(value, index); // (value, index);
 
                 if (parameters.length < min && !token) return;
                 else if (token) parameters.push(token.value);
@@ -381,6 +384,7 @@ export namespace Expressions {
     }
     export function aggregateTransformation(value: Utils.SourceArray, index: number): Lexer.Token {return setTransformationFactory(value, index, "aggregate", 1); }
     export function groupbyTransformation(value: Utils.SourceArray, index: number): Lexer.Token { return setTransformationFactory(value, index, "groupby", 1, 2); }
+    export function filterTransformation(value: Utils.SourceArray, index: number): Lexer.Token { return setTransformationFactory(value, index, "filter", 1); }
 
     export function aggregationExpr(value: Utils.SourceArray, index: number): Lexer.Token {
         const start = index;
